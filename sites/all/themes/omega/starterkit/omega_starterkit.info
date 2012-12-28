@@ -7,9 +7,9 @@ base theme = omega
 starterkit = TRUE
 hidden = TRUE
 
-; Information added by drupal.org packaging script on 2012-12-14
-version = "7.x-4.0-alpha2+2-dev"
+; Information added by drupal.org packaging script on 2012-12-28
+version = "7.x-4.0-alpha2+10-dev"
 core = "7.x"
 project = "omega"
-datestamp = "1355491307"
+datestamp = "1356701106"
 

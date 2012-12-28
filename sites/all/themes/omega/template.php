@@ -9,6 +9,17 @@ require_once dirname(__FILE__) . '/includes/omega.inc';
 require_once dirname(__FILE__) . '/includes/scripts.inc';
 
 /**
+ * We have to rebuild the theme data if hook_system_info_alter() hasn't been
+ * executed for the omega theme yet.
+ */
+if ($GLOBALS['theme'] === $GLOBALS['theme_key']) {
+  $info = system_get_info('theme', $GLOBALS['theme']);
+  if (empty($info['omega_processed'])) {
+    system_rebuild_theme_data();
+  }
+}
+
+/**
  * Slightly hacky performance tweak for theme_get_setting(). This resides
  * outside of any function declaration to make sure that it runs directly after
  * the theme has been initialized.
@@ -25,7 +36,7 @@ require_once dirname(__FILE__) . '/includes/scripts.inc';
  *
  * @see theme_get_setting()
  */
-if ($GLOBALS['theme'] == $GLOBALS['theme_key'] && !$static = &drupal_static('theme_get_setting')) {
+if ($GLOBALS['theme'] === $GLOBALS['theme_key'] && !$static = &drupal_static('theme_get_setting')) {
   if ($cache = cache_get('theme_settings:' . $GLOBALS['theme'])) {
     // If the cache entry exists, populate the static theme settings array with
     // its data. This prevents the theme settings from being rebuilt on every
@@ -50,14 +61,14 @@ if ($GLOBALS['theme'] == $GLOBALS['theme_key'] && !$static = &drupal_static('the
  * function declaration to make sure that the code is executed before any theme
  * hooks.
  */
-if ($GLOBALS['theme'] == $GLOBALS['theme_key'] && omega_extension_enabled('development') && user_access('administer site configuration')) {
+if ($GLOBALS['theme'] === $GLOBALS['theme_key'] && omega_extension_enabled('development') && user_access('administer site configuration')) {
   if (omega_theme_get_setting('omega_rebuild_theme_registry', FALSE)) {
     drupal_theme_rebuild();
 
     if (flood_is_allowed('omega_' . $GLOBALS['theme'] . '_rebuild_registry_warning', 3)) {
       // Alert the user that the theme registry is being rebuilt on every request.
       flood_register_event('omega_' . $GLOBALS['theme'] . '_rebuild_registry_warning');
-      drupal_set_message(t('The theme registry is being rebuilt on every request. Remember to <a href="!url">turn off</a> this feature on production websites.', array("!url" => url('admin/appearance/settings/' . $GLOBALS['theme']))));
+      drupal_set_message(t('The theme registry is being rebuilt on every request. Remember to <a href="!url">turn off</a> this feature on production websites.', array("!url" => url('admin/appearance/settings/' . $GLOBALS['theme']))), 'warning');
     }
   }
 
@@ -76,7 +87,7 @@ if ($GLOBALS['theme'] == $GLOBALS['theme_key'] && omega_extension_enabled('devel
     if (flood_is_allowed('omega_' . $GLOBALS['theme'] . '_rebuild_aggregates_warning', 3)) {
       // Alert the user that the theme registry is being rebuilt on every request.
       flood_register_event('omega_' . $GLOBALS['theme'] . '_rebuild_aggregates_warning');
-      drupal_set_message(t('The CSS and JS aggregates are being rebuilt on every request. Remember to <a href="!url">turn off</a> this feature on production websites.', array("!url" => url('admin/appearance/settings/' . $GLOBALS['theme']))));
+      drupal_set_message(t('The CSS and JS aggregates are being rebuilt on every request. Remember to <a href="!url">turn off</a> this feature on production websites.', array("!url" => url('admin/appearance/settings/' . $GLOBALS['theme']))), 'warning');
     }
   }
 }
@@ -86,6 +97,12 @@ if ($GLOBALS['theme'] == $GLOBALS['theme_key'] && omega_extension_enabled('devel
  */
 function omega_system_info_alter(&$info, $file, $type) {
   if ($type == 'theme' && array_key_exists('omega', omega_theme_trail($file->name))) {
+    // Put a flag into the info array that indicates that this function has been
+    // executed during drupal_alter(). This is required because Drupal only
+    // executes the alter hooks on the active theme which might be the admin
+    // theme (e.g. when editing the theme settings).
+    $info['omega_processed'] = TRUE;
+
     foreach (omega_layouts_info($file->name) as $layout) {
       foreach ($layout['info']['regions'] as $region => $description) {
         if (!isset($info['regions'][$region])) {
@@ -496,10 +513,11 @@ function omega_omega_theme_libraries_info($theme) {
 
   $libraries['css3mediaqueries'] = array(
     'name' => t('CSS3 Media Queries'),
-    'description' => t('CSS3 Media Queries is a JavaScript library to make IE 5+, Firefox 1+ and Safari 2 transparently parse, test and apply CSS3 Media Queries. Firefox 3.5+, Opera 7+, Safari 3+ and Chrome already offer native support.'),
+    'description' => t('CSS3 Media Queries is a JavaScript library to make IE 5+, Firefox 1+ and Safari 2 transparently parse, test and apply CSS3 Media Queries. Firefox 3.5+, Opera 7+, Safari 3+ and Chrome already offer native support. Note: This library requires <a href="!url">CSS aggregation</a> to be enabled for it to work properly.', array('!url' => url('admin/config/development/performance'))),
     'vendor' => 'Wouter van der Graaf',
     'vendor url' => 'http://woutervandergraaf.nl/',
     'package' => t('Polyfills'),
+    'callbacks' => array('omega_extension_library_requirements_css_aggregation'),
     'files' => array(
       'js' => array(
         $path . '/libraries/css3mediaqueries/css3mediaqueries.min.js' => array(
@@ -530,10 +548,11 @@ function omega_omega_theme_libraries_info($theme) {
 
   $libraries['respond'] = array(
     'name' => t('Respond'),
-    'description' => t('Respond is a fast & lightweight polyfill for min/max-width CSS3 Media Queries (for IE 6-8, and more).'),
+    'description' => t('Respond is a fast & lightweight polyfill for min/max-width CSS3 Media Queries (for IE 6-8, and more). Note: This library requires <a href="!url">CSS aggregation</a> to be enabled for it to work properly.', array('!url' => url('admin/config/development/performance'))),
     'vendor' => 'Scott Jehl',
     'vendor url' => 'http://scottjehl.com/',
     'package' => t('Polyfills'),
+    'callbacks' => array('omega_extension_library_requirements_css_aggregation'),
     'files' => array(
       'js' => array(
         $path . '/libraries/respond/respond.min.js' => array(

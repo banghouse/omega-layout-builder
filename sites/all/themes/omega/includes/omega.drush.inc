@@ -164,7 +164,7 @@ function drush_omega_subtheme($name = NULL) {
  * Resolves the destination path for a subtheme. This can either be a profile
  * theme folder, a sites theme folder or a theme.
  *
- * @param string $destination
+ * @param $destination
  *   A destination string, this can either be a site path ('sites/foo'), a
  *   profile path ('profiles/foo') or a theme path ('themes/foo').
  *
@@ -215,8 +215,10 @@ function drush_omega_export_validate($theme = NULL) {
  * Exports the theme settings for the given theme from the database and writes
  * them into the .info file of that theme.
  *
- * @param $name
- *   The machine-readable name of a theme.
+ * @param $theme
+ *   (optional) The machine-readable name of a theme.
+ * @return bool
+ *   TRUE on success, FALSE on failure.
  */
 function drush_omega_export($theme = NULL) {
   if (!isset($theme) && !$theme = _omega_drush_theme_choice()) {
@@ -283,7 +285,7 @@ function drush_omega_revert_validate($theme) {
  * Delete the theme settings that have been stored in the database and thereby
  * reverts them to the default settings from the .info file.
  *
- * @param $name
+ * @param $theme
  *   The machine-readable name of a theme.
  */
 function drush_omega_revert($theme = NULL) {
@@ -556,27 +558,31 @@ function omega_drush_subtheme_create($subtheme) {
 /**
  * Retrieve an array of available sites from the sites.php.
  *
- * @return
+ * @return array
  *   An array that contains all the available sites in a multisite environment.
  */
 function omega_drush_sites() {
-  $sites = array('all' => 'all');
+  $return = array('all' => 'all', 'default' => 'default');
 
   // Load the available sites (multisite installation) from the sites.php file
   // if it exists.
   if (file_exists(DRUPAL_ROOT . '/sites/sites.php')) {
     include DRUPAL_ROOT . '/sites/sites.php';
+
+    if (isset($sites)) {
+      $return = array_merge($return, $sites);
+    }
   }
 
-  // The 'all' destination is always available.
-  return array_keys(array_merge($sites));
+  // The 'all' and 'default' destinations are always available.
+  return array_keys($return);
 }
 
 /**
  * Helper function for generating a valid machine-readable name for a theme from
  * any string.
  *
- * @param $name
+ * @param $string
  *   The string to generate the machine-readable name from.
  *
  * @return string
